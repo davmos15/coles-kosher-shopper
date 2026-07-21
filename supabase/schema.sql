@@ -80,6 +80,61 @@ begin
   end loop;
 end $$;
 
+-- Households + membership are also protected by RLS. Members can read their own
+-- household and their own membership row; nobody writes these tables directly.
+alter table households enable row level security;
+alter table household_members enable row level security;
+
+drop policy if exists households_select on households;
+create policy households_select on households
+  for select to authenticated using (is_member(id));
+
+drop policy if exists members_select on household_members;
+create policy members_select on household_members
+  for select to authenticated using (user_id = auth.uid());
+
+-- Creating/joining a household needs to write both tables atomically and read
+-- the row back before you're a member — so it goes through SECURITY DEFINER
+-- functions (which run as the owner, bypassing RLS) rather than direct inserts.
+create or replace function create_household(p_name text, p_display_name text)
+returns households
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare h households;
+begin
+  if auth.uid() is null then raise exception 'Not authenticated'; end if;
+  insert into households (name)
+    values (coalesce(nullif(p_name, ''), 'Our shop'))
+    returning * into h;
+  insert into household_members (household_id, user_id, display_name)
+    values (h.id, auth.uid(), nullif(p_display_name, ''));
+  return h;
+end;
+$$;
+
+create or replace function join_household(p_code uuid, p_display_name text)
+returns households
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare h households;
+begin
+  if auth.uid() is null then raise exception 'Not authenticated'; end if;
+  select * into h from households where id = p_code;
+  if not found then raise exception 'No household found for that invite code'; end if;
+  insert into household_members (household_id, user_id, display_name)
+    values (p_code, auth.uid(), nullif(p_display_name, ''))
+    on conflict (household_id, user_id) do nothing;
+  return h;
+end;
+$$;
+
+grant execute on function create_household(text, text) to authenticated;
+grant execute on function join_household(uuid, text) to authenticated;
+
 -- Realtime: stream row changes to a household's members so both devices update
 -- live (see src/lib/store.ts). Realtime still enforces the RLS policies above.
 -- Guarded so re-running this file is safe.

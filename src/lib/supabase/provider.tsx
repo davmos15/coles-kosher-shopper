@@ -124,18 +124,11 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   const createHousehold = useCallback(
     async (displayName: string) => {
       if (!client || !user) return { error: "Not signed in." };
-      const { data: h, error: hErr } = await client
-        .from("households")
-        .insert({ name: "Our shop" })
-        .select("id, name")
-        .single();
-      if (hErr || !h) return { error: hErr?.message ?? "Could not create household." };
-      const { error: mErr } = await client.from("household_members").insert({
-        household_id: h.id,
-        user_id: user.id,
-        display_name: displayName.trim() || null,
+      const { data: h, error } = await client.rpc("create_household", {
+        p_name: "Our shop",
+        p_display_name: displayName.trim(),
       });
-      if (mErr) return { error: mErr.message };
+      if (error || !h) return { error: error?.message ?? "Could not create household." };
       setHousehold({ id: h.id, name: h.name });
       return { error: null };
     },
@@ -147,20 +140,18 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
       if (!client || !user) return { error: "Not signed in." };
       const id = code.trim();
       if (!UUID_RE.test(id)) return { error: "That doesn't look like a valid invite code." };
-      const { data: h, error: hErr } = await client
-        .from("households")
-        .select("id, name")
-        .eq("id", id)
-        .maybeSingle();
-      if (hErr) return { error: hErr.message };
-      if (!h) return { error: "No household found for that invite code." };
-      const { error: mErr } = await client.from("household_members").insert({
-        household_id: id,
-        user_id: user.id,
-        display_name: displayName.trim() || null,
+      const { data: h, error } = await client.rpc("join_household", {
+        p_code: id,
+        p_display_name: displayName.trim(),
       });
-      // Ignore a duplicate-membership error — it just means we're already in.
-      if (mErr && !/duplicate key/i.test(mErr.message)) return { error: mErr.message };
+      if (error || !h) {
+        const msg = error?.message ?? "";
+        return {
+          error: /No household found/i.test(msg)
+            ? "No household found for that invite code."
+            : msg || "Could not join that household.",
+        };
+      }
       setHousehold({ id: h.id, name: h.name });
       return { error: null };
     },
