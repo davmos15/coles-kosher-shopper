@@ -6,7 +6,8 @@ learn-once kosher check, and a separate "can't get at Coles" reminder list.
 
 ## What works today (v1)
 
-- **Add recipes** by text or photo. Claude (Haiku 4.5) extracts the ingredients.
+- **Add recipes** by text or photo. Claude (Haiku 4.5) or Gemini (free tier)
+  extracts the ingredients — your choice.
 - **Consolidation engine** merges everything: dedupes names, sums quantities
   (mass / volume / count folded sensibly), and drops pantry staples.
 - **Kosher, learn-once**: tap a product's chip to mark it kosher / not /
@@ -22,14 +23,26 @@ matching drops into that one file later.
 ## Run it
 
 ```bash
-cp .env.example .env.local      # add your ANTHROPIC_API_KEY
+cp .env.example .env.local      # add ANTHROPIC_API_KEY and/or GEMINI_API_KEY
 npm install
 npm run dev                     # http://localhost:3000
 ```
 
-Get an API key at https://console.anthropic.com — it's pay-as-you-go and
-separate from a Claude.ai subscription. Extraction runs on Haiku 4.5, so a
-recipe costs well under a cent.
+### Recipe extraction — Claude (paid) or Gemini (free)
+
+Set at least one:
+
+- **`ANTHROPIC_API_KEY`** — https://console.anthropic.com. Pay-as-you-go,
+  separate from a Claude.ai subscription. Runs on Haiku 4.5 (well under a cent
+  per recipe).
+- **`GEMINI_API_KEY`** — https://aistudio.google.com/apikey. Has a **free
+  tier**. Runs on `gemini-2.0-flash`.
+
+If both keys are set, Gemini is used (cheapest) unless you pin a choice with
+`EXTRACTION_PROVIDER=anthropic` (or `gemini`). Override the model with
+`ANTHROPIC_MODEL` / `GEMINI_MODEL`. The app shows which model read each recipe,
+so you can compare free vs paid on the same input. The key stays server-side —
+extraction runs in `src/app/api/extract`.
 
 ## Deploy (Vercel)
 
@@ -76,14 +89,23 @@ How it works:
 5. Both people sign in; one starts the shop and shares the invite code, the
    other joins. Done — you're on one list.
 
-## Coles integration paths (for later)
+## Coles: how "add to cart" works (and why it isn't fully automatic)
 
-- **Path B (recommended, robust):** resolve each item to a Coles product +
-  price + URL via a product-data source, hand over one-tap add-through links.
-  Survives Coles site changes; your account stays clean.
-- **Path A (experimental toggle):** drive Coles' internal trolley endpoint with
-  your own session for true auto-add. Fragile and against Coles' terms — build
-  it behind a flag and expect it to break on redesigns.
+Coles has **no public API and no shareable cart link**, so the app can't
+silently push items into your trolley. What it does instead (Path B — robust,
+within Coles' terms):
+
+- **Copy list** puts the whole consolidated list on your clipboard.
+- **Open Coles** opens coles.com.au; each line also links straight to its Coles
+  **search** so adding an item is one tap on Coles' own site.
+- **Tick items** off as they go in the trolley (per shopping session).
+
+True silent auto-add would mean driving Coles' private trolley endpoint with
+your logged-in session (**Path A**): it's against Coles' terms, sits behind bot
+protection, and breaks on every redesign — so it's intentionally not built. It
+would also need real product matching first: `src/lib/coles.ts` is still a stub
+that returns a search link per item. Drop real product/price resolution into
+that one file and the add-through links get sharper automatically.
 
 ## Kosher data — how it's sourced
 
@@ -98,7 +120,7 @@ products are flagged "unverified" instead of guessed.
 src/lib/consolidate.ts   the engine (pure, testable)
 src/lib/units.ts         quantity parsing + summing
 src/lib/normalise.ts     ingredient grouping keys
-src/lib/anthropic.ts     recipe extraction
+src/lib/extract/*        recipe extraction (Claude or Gemini, provider-switchable)
 src/lib/coles.ts         Coles matcher (STUB — replace here)
 src/lib/store.ts         persistence (localStorage OR Supabase, keyed by household)
 src/lib/supabase/*       Supabase clients, auth + household provider

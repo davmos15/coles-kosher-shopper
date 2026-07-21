@@ -96,11 +96,16 @@ export function useAppData() {
     }));
   }, []);
 
-  const reset = useCallback(() => setData(emptyData()), []);
+  // "Clear shop" ends the current run: it drops the recipes (and so the
+  // generated list) but keeps everything you've taught the app — cupboard
+  // staples, favourites, learned kosher statuses, and the can't-get list.
+  const clearShop = useCallback(() => {
+    setData((prev) => ({ ...prev, recipes: [] }));
+  }, []);
 
   return {
     data, ready,
     addRecipe, removeRecipe, togglePantry, setKosher, setFavourite,
-    addUnavailable, removeUnavailable, reset,
+    addUnavailable, removeUnavailable, clearShop,
   };
 }

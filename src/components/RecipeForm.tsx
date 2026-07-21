@@ -8,6 +8,7 @@ export function RecipeForm({ onAdd }: { onAdd: (r: Omit<Recipe, "id" | "createdA
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<string | null>(null);
 
   async function handleImage(file: File): Promise<{ mediaType: string; base64: string }> {
     const dataUrl: string = await new Promise((res, rej) => {
@@ -32,6 +33,7 @@ export function RecipeForm({ onAdd }: { onAdd: (r: Omit<Recipe, "id" | "createdA
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Extraction failed.");
       onAdd({ title: data.title, ingredients: data.ingredients, addedBy: who.trim() || "someone" });
+      setProvider(data.provider ?? null);
       setText("");
     } catch (e: any) {
       setError(e.message);
@@ -57,6 +59,11 @@ export function RecipeForm({ onAdd }: { onAdd: (r: Omit<Recipe, "id" | "createdA
         onChange={(e) => setText(e.target.value)}
       />
       {error && <p className="text-sm text-[#9c3a28] mb-3">{error}</p>}
+      {!error && provider && (
+        <p className="text-xs text-muted mb-3">
+          Last recipe read with {provider === "gemini" ? "Gemini (free)" : "Claude (paid)"}.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <button className="btn btn-primary" disabled={busy || !text.trim()} onClick={() => submit()}>
           {busy ? "Reading…" : "Add from text"}

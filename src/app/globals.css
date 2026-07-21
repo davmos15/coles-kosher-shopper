@@ -10,7 +10,13 @@
 html { color-scheme: light; }
 
 body {
-  background: theme("colors.paper");
+  /* A soft grocer-green wash instead of a flat fill — gives the page depth
+     without competing with the cards. */
+  background:
+    radial-gradient(1100px 500px at 100% -10%, #e7f0ea 0%, rgba(231, 240, 234, 0) 60%),
+    radial-gradient(900px 500px at -10% 0%, #eef3ea 0%, rgba(238, 243, 234, 0) 55%),
+    theme("colors.paper");
+  background-attachment: fixed;
   color: theme("colors.ink");
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -35,8 +41,51 @@ body {
 .card {
   background: theme("colors.card");
   border: 1px solid theme("colors.line");
-  border-radius: 14px;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(27, 32, 28, 0.04), 0 6px 20px -12px rgba(27, 32, 28, 0.12);
 }
+
+/* Sticky, frosted top bar. */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid theme("colors.line");
+}
+
+.brandmark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: theme("colors.grocer");
+  color: white;
+  font-weight: 800;
+  box-shadow: 0 4px 12px -4px rgba(47, 107, 75, 0.6);
+}
+
+/* Compact metric used in the shopping-list summary strip. */
+.stat-num { font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.stat-label { font-size: 0.68rem; color: theme("colors.muted"); }
+
+/* Round tick control + struck-through line when an item's in the trolley. */
+.tick {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1.5px solid theme("colors.line");
+  display: grid;
+  place-items: center;
+  color: transparent;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.tick:hover { border-color: theme("colors.grocer"); }
+.tick-on { background: theme("colors.grocer"); border-color: theme("colors.grocer"); color: white; }
+.line-done .line-name { text-decoration: line-through; color: theme("colors.muted"); }
 
 .btn {
   font-weight: 650;

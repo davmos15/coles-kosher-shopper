@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractRecipe } from "@/lib/anthropic";
+import { extractRecipe } from "@/lib/extract";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err: any) {
     const message = err?.message || "Something went wrong extracting the recipe.";
-    const status = message.includes("ANTHROPIC_API_KEY") ? 500 : 400;
+    const status = /API_KEY is not set/.test(message) ? 500 : 400;
     return NextResponse.json({ error: message }, { status });
   }
 }

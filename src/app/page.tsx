@@ -26,16 +26,34 @@ function Shop() {
     return <main className="min-h-screen grid place-items-center text-muted">Loading…</main>;
   }
 
+  const hasRecipes = app.data.recipes.length > 0;
+
+  function clearShop() {
+    if (hasRecipes && !window.confirm("Clear the recipes for this shop? Your cupboard, favourites and kosher checks are kept.")) {
+      return;
+    }
+    app.clearShop();
+  }
+
   return (
     <main className="min-h-screen">
-      <header className="border-b border-line bg-card">
-        <div className="max-w-6xl mx-auto px-5 py-5 flex items-baseline justify-between">
-          <div className="flex items-baseline gap-3">
-            <span className="display text-xl text-grocer">▪</span>
-            <h1 className="display text-xl">Recipes in, one list out</h1>
+      <header className="appbar">
+        <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="brandmark shrink-0">C</span>
+            <div className="min-w-0">
+              <h1 className="display text-lg leading-tight truncate">Recipes in, one list out</h1>
+              <p className="text-xs text-muted leading-tight hidden sm:block">
+                Paste recipes → one consolidated Coles list
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="text-xs text-muted hover:text-ink" onClick={app.reset}>
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            <button
+              className="text-xs text-muted hover:text-ink disabled:opacity-40"
+              onClick={clearShop}
+              disabled={!hasRecipes}
+            >
               Clear shop
             </button>
             <AccountBar />
