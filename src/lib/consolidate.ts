@@ -19,18 +19,32 @@ import { matchColes } from "./coles";
 export function consolidate(data: AppData): ShoppingList {
   const pantry = new Set(data.pantryStaples.map(normaliseName));
 
-  // key -> { acc, recipeIds }
-  const groups = new Map<string, { acc: QtyAccumulator; recipes: Set<string> }>();
+  // key -> { acc, recipeIds, manual }
+  const groups = new Map<string, { acc: QtyAccumulator; recipes: Set<string>; manual: boolean }>();
+
+  const ensure = (key: string) => {
+    if (!groups.has(key)) groups.set(key, { acc: newAccumulator(), recipes: new Set(), manual: false });
+    return groups.get(key)!;
+  };
 
   for (const recipe of data.recipes) {
     for (const ing of recipe.ingredients) {
       const key = normaliseName(ing.name);
       if (!key) continue;
-      if (!groups.has(key)) groups.set(key, { acc: newAccumulator(), recipes: new Set() });
-      const g = groups.get(key)!;
+      const g = ensure(key);
       addToAccumulator(g.acc, ing.quantity, ing.unit, ing.raw);
       g.recipes.add(recipe.id);
     }
+  }
+
+  // Manually-added items fold into the same groups (so they merge with matching
+  // recipe items and get a Coles match / kosher status like anything else).
+  for (const item of data.manualItems) {
+    const key = normaliseName(item.name);
+    if (!key) continue;
+    const g = ensure(key);
+    addToAccumulator(g.acc, item.quantity, item.unit, item.name);
+    g.manual = true;
   }
 
   const lines: ListLine[] = [];
@@ -66,6 +80,7 @@ export function consolidate(data: AppData): ShoppingList {
       name: displayName(key),
       amount: formatAmount(g.acc),
       fromRecipes: g.recipes.size,
+      manual: g.manual,
       product,
       kosher,
       needsMatch,

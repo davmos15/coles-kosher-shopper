@@ -29,6 +29,15 @@ create table if not exists recipes (
   created_at timestamptz default now()
 );
 
+create table if not exists manual_items (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid references households(id) on delete cascade,
+  name text not null,
+  quantity numeric,                     -- null = unspecified ("as needed")
+  unit text default '',
+  created_at timestamptz default now()
+);
+
 create table if not exists pantry_staples (
   household_id uuid references households(id) on delete cascade,
   name text not null,
@@ -58,6 +67,7 @@ create table if not exists unavailable_items (
 
 -- Row Level Security: members only see their household's rows.
 alter table recipes enable row level security;
+alter table manual_items enable row level security;
 alter table pantry_staples enable row level security;
 alter table favourites enable row level security;
 alter table kosher_memory enable row level security;
@@ -73,7 +83,7 @@ $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['recipes','pantry_staples','favourites','kosher_memory','unavailable_items']
+  foreach t in array array['recipes','manual_items','pantry_staples','favourites','kosher_memory','unavailable_items']
   loop
     execute format('drop policy if exists member_all on %I;', t);
     execute format('create policy member_all on %I for all using (is_member(household_id)) with check (is_member(household_id));', t);
@@ -141,7 +151,7 @@ grant execute on function join_household(uuid, text) to authenticated;
 do $$
 declare t text;
 begin
-  foreach t in array array['recipes','pantry_staples','favourites','kosher_memory','unavailable_items']
+  foreach t in array array['recipes','manual_items','pantry_staples','favourites','kosher_memory','unavailable_items']
   loop
     if not exists (
       select 1 from pg_publication_tables

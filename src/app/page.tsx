@@ -7,6 +7,7 @@ import { useSupabase } from "@/lib/supabase/provider";
 import { AuthGate } from "@/components/AuthGate";
 import { RecipeForm } from "@/components/RecipeForm";
 import { RecipesPanel } from "@/components/RecipesPanel";
+import { ManualItemsPanel } from "@/components/ManualItemsPanel";
 import { ListsPanel } from "@/components/ListsPanel";
 import { ShoppingListView } from "@/components/ShoppingListView";
 
@@ -64,6 +65,11 @@ function Shop() {
       <div className="max-w-6xl mx-auto px-5 py-6 grid lg:grid-cols-2 gap-6">
         <section className="space-y-4">
           <RecipeForm onAdd={app.addRecipe} />
+          <ManualItemsPanel
+            items={app.data.manualItems}
+            onAdd={app.addManualItem}
+            onRemove={app.removeManualItem}
+          />
           <RecipesPanel recipes={app.data.recipes} onRemove={app.removeRecipe} />
           <ListsPanel
             data={app.data}

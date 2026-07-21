@@ -133,6 +133,7 @@ export function ShoppingListView({ list, onSetKosher }: Props) {
                   <p className="text-xs text-muted mt-0.5">
                     {line.amount}
                     {line.fromRecipes > 1 && <span> · from {line.fromRecipes} recipes</span>}
+                    {line.manual && line.fromRecipes === 0 && <span> · added manually</span>}
                     {line.needsMatch && <span> · no Coles match yet</span>}
                   </p>
                 </div>

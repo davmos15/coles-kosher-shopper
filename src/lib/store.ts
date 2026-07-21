@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AppData, Recipe, UnavailableItem } from "./types";
+import type { AppData, Recipe, UnavailableItem, ManualItem } from "./types";
 
 // Persistence lives behind a small Backend interface so the rest of the app
 // (useAppData, the engine, the components) never learns where data is stored.
@@ -20,7 +20,7 @@ export interface Backend {
 }
 
 export function emptyData(): AppData {
-  return { recipes: [], pantryStaples: [], favourites: {}, kosher: {}, unavailable: [] };
+  return { recipes: [], manualItems: [], pantryStaples: [], favourites: {}, kosher: {}, unavailable: [] };
 }
 
 export function seedData(): AppData {
@@ -83,6 +83,7 @@ class LocalBackend implements Backend {
 
 const TABLES = [
   "recipes",
+  "manual_items",
   "pantry_staples",
   "favourites",
   "kosher_memory",
@@ -101,12 +102,17 @@ class SupabaseBackend implements Backend {
 
   async load(): Promise<AppData> {
     const h = this.householdId;
-    const [recipes, pantry, favs, kosher, unavail] = await Promise.all([
+    const [recipes, manual, pantry, favs, kosher, unavail] = await Promise.all([
       this.client
         .from("recipes")
         .select("id, title, added_by, ingredients, created_at")
         .eq("household_id", h)
         .order("created_at", { ascending: false }),
+      this.client
+        .from("manual_items")
+        .select("id, name, quantity, unit, created_at")
+        .eq("household_id", h)
+        .order("created_at", { ascending: true }),
       this.client.from("pantry_staples").select("name").eq("household_id", h),
       this.client
         .from("favourites")
@@ -123,7 +129,7 @@ class SupabaseBackend implements Backend {
     ]);
 
     const firstError =
-      recipes.error || pantry.error || favs.error || kosher.error || unavail.error;
+      recipes.error || manual.error || pantry.error || favs.error || kosher.error || unavail.error;
     if (firstError) throw firstError;
 
     const data: AppData = {
@@ -133,6 +139,12 @@ class SupabaseBackend implements Backend {
         addedBy: r.added_by,
         ingredients: r.ingredients,
         createdAt: r.created_at ? Date.parse(r.created_at) : Date.now(),
+      })),
+      manualItems: (manual.data ?? []).map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        quantity: typeof m.quantity === "number" ? m.quantity : null,
+        unit: m.unit ?? "",
       })),
       pantryStaples: (pantry.data ?? []).map((p: any) => p.name),
       favourites: Object.fromEntries(
@@ -195,6 +207,37 @@ class SupabaseBackend implements Backend {
       ops.push(
         this.expect(
           this.client.from("recipes").delete().eq("household_id", h).in("id", goneRecipes)
+        )
+      );
+    }
+
+    // --- manual_items (keyed by id) ---
+    const prevManualIds = new Set(prev.manualItems.map((m) => m.id));
+    const nextManualIds = new Set(next.manualItems.map((m) => m.id));
+    const newManual = next.manualItems.filter((m) => !prevManualIds.has(m.id));
+    const goneManual = prev.manualItems
+      .filter((m) => !nextManualIds.has(m.id))
+      .map((m) => m.id);
+    if (newManual.length) {
+      ops.push(
+        this.expect(
+          this.client.from("manual_items").upsert(
+            newManual.map((m: ManualItem) => ({
+              id: m.id,
+              household_id: h,
+              name: m.name,
+              quantity: m.quantity,
+              unit: m.unit,
+            })),
+            { onConflict: "id" }
+          )
+        )
+      );
+    }
+    if (goneManual.length) {
+      ops.push(
+        this.expect(
+          this.client.from("manual_items").delete().eq("household_id", h).in("id", goneManual)
         )
       );
     }

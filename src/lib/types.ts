@@ -48,9 +48,18 @@ export interface UnavailableItem {
   note: string;
 }
 
+/** An item added straight to the shop, not via a recipe. */
+export interface ManualItem {
+  id: string;
+  name: string;
+  quantity: number | null;
+  unit: string;
+}
+
 /** Everything persisted for a household. */
 export interface AppData {
   recipes: Recipe[];
+  manualItems: ManualItem[]; // added directly, outside any recipe
   pantryStaples: string[]; // normalised names always in the cupboard
   favourites: Favourites;
   kosher: KosherMemory;
@@ -66,6 +75,8 @@ export interface ListLine {
   amount: string;
   /** How many recipes contributed to this line */
   fromRecipes: number;
+  /** True when (part of) this line was added manually, not via a recipe */
+  manual: boolean;
   /** Matched product (favourite or stubbed candidate), if any */
   product: Product | null;
   /** Kosher status of the matched product */

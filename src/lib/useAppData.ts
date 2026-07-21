@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import type { AppData, Recipe, UnavailableItem, KosherStatus, Product } from "./types";
+import type { AppData, Recipe, UnavailableItem, ManualItem, KosherStatus, Product } from "./types";
 import { createBackend, emptyData } from "./store";
 import { normaliseName } from "./normalise";
 import { useSupabase } from "./supabase/provider";
@@ -61,6 +61,18 @@ export function useAppData() {
     setData((prev) => ({ ...prev, recipes: prev.recipes.filter((r) => r.id !== id) }));
   }, []);
 
+  const addManualItem = useCallback((item: Omit<ManualItem, "id">) => {
+    const entry: ManualItem = { ...item, id: crypto.randomUUID() };
+    setData((prev) => ({ ...prev, manualItems: [...prev.manualItems, entry] }));
+  }, []);
+
+  const removeManualItem = useCallback((id: string) => {
+    setData((prev) => ({
+      ...prev,
+      manualItems: prev.manualItems.filter((m) => m.id !== id),
+    }));
+  }, []);
+
   const togglePantry = useCallback((name: string) => {
     const key = normaliseName(name);
     if (!key) return;
@@ -96,16 +108,17 @@ export function useAppData() {
     }));
   }, []);
 
-  // "Clear shop" ends the current run: it drops the recipes (and so the
-  // generated list) but keeps everything you've taught the app — cupboard
-  // staples, favourites, learned kosher statuses, and the can't-get list.
+  // "Clear shop" ends the current run: it drops the recipes and manually-added
+  // items (and so the generated list) but keeps everything you've taught the
+  // app — cupboard staples, favourites, learned kosher statuses, can't-get list.
   const clearShop = useCallback(() => {
-    setData((prev) => ({ ...prev, recipes: [] }));
+    setData((prev) => ({ ...prev, recipes: [], manualItems: [] }));
   }, []);
 
   return {
     data, ready,
-    addRecipe, removeRecipe, togglePantry, setKosher, setFavourite,
+    addRecipe, removeRecipe, addManualItem, removeManualItem,
+    togglePantry, setKosher, setFavourite,
     addUnavailable, removeUnavailable, clearShop,
   };
 }
