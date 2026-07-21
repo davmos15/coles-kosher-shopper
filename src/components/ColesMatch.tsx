@@ -57,6 +57,10 @@ export function ColesMatch({ query, current, onPin }: Props) {
       </button>
 
       {open && (
+        <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden />
+      )}
+
+      {open && (
         <div className="absolute right-0 mt-2 z-30 w-72 card p-3 shadow-lg">
           {pinned && current && (
             <div className="text-xs text-muted mb-2">
