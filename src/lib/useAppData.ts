@@ -1,38 +1,64 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import type { AppData, Recipe, UnavailableItem, KosherStatus, Product } from "./types";
-import { load, save, emptyData } from "./store";
+import { createBackend, emptyData } from "./store";
 import { normaliseName } from "./normalise";
+import { useSupabase } from "./supabase/provider";
+
+// Same public API as before — the components and the engine don't change. What
+// changed is underneath: state is loaded from and saved to a Backend (local
+// storage, or Supabase keyed by household), and remote edits stream in live.
+//
+// Mutations update local state optimistically; a single effect persists the
+// snapshot. Supabase writes are diff-based, so re-persisting an unchanged
+// snapshot (e.g. right after a load or a realtime refresh) is a no-op.
 
 export function useAppData() {
+  const { client, household } = useSupabase();
+  const backend = useMemo(
+    () => createBackend(client, household?.id ?? null),
+    [client, household?.id]
+  );
+
   const [data, setData] = useState<AppData>(emptyData());
   const [ready, setReady] = useState(false);
 
+  // Load the snapshot and subscribe to remote changes whenever the backend
+  // (i.e. the household, or local vs Supabase) changes.
   useEffect(() => {
-    setData(load());
-    setReady(true);
-  }, []);
+    let active = true;
+    setReady(false);
+    backend.load().then((d) => {
+      if (!active) return;
+      setData(d);
+      setReady(true);
+    });
+    const unsubscribe = backend.subscribe(() => {
+      backend.load().then((d) => {
+        if (active) setData(d);
+      });
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [backend]);
 
-  const commit = useCallback((next: AppData) => {
-    setData(next);
-    save(next);
-  }, []);
+  // Persist local edits. Diff-based backends make a no-op save cheap, so this
+  // safely fires on the freshly-loaded snapshot too.
+  useEffect(() => {
+    if (!ready) return;
+    void backend.save(data);
+  }, [data, ready, backend]);
 
   const addRecipe = useCallback((r: Omit<Recipe, "id" | "createdAt">) => {
-    setData((prev) => {
-      const next = { ...prev, recipes: [{ ...r, id: crypto.randomUUID(), createdAt: Date.now() }, ...prev.recipes] };
-      save(next);
-      return next;
-    });
+    const recipe: Recipe = { ...r, id: crypto.randomUUID(), createdAt: Date.now() };
+    setData((prev) => ({ ...prev, recipes: [recipe, ...prev.recipes] }));
   }, []);
 
   const removeRecipe = useCallback((id: string) => {
-    setData((prev) => {
-      const next = { ...prev, recipes: prev.recipes.filter((r) => r.id !== id) };
-      save(next);
-      return next;
-    });
+    setData((prev) => ({ ...prev, recipes: prev.recipes.filter((r) => r.id !== id) }));
   }, []);
 
   const togglePantry = useCallback((name: string) => {
@@ -43,45 +69,34 @@ export function useAppData() {
       const pantryStaples = has
         ? prev.pantryStaples.filter((p) => normaliseName(p) !== key)
         : [...prev.pantryStaples, name.trim()];
-      const next = { ...prev, pantryStaples };
-      save(next);
-      return next;
+      return { ...prev, pantryStaples };
     });
   }, []);
 
   const setKosher = useCallback((productId: string, status: KosherStatus) => {
-    setData((prev) => {
-      const next = { ...prev, kosher: { ...prev.kosher, [productId]: status } };
-      save(next);
-      return next;
-    });
+    setData((prev) => ({ ...prev, kosher: { ...prev.kosher, [productId]: status } }));
   }, []);
 
   const setFavourite = useCallback((ingredientKey: string, product: Product) => {
-    setData((prev) => {
-      const next = { ...prev, favourites: { ...prev.favourites, [ingredientKey]: product } };
-      save(next);
-      return next;
-    });
+    setData((prev) => ({
+      ...prev,
+      favourites: { ...prev.favourites, [ingredientKey]: product },
+    }));
   }, []);
 
   const addUnavailable = useCallback((item: Omit<UnavailableItem, "id">) => {
-    setData((prev) => {
-      const next = { ...prev, unavailable: [...prev.unavailable, { ...item, id: crypto.randomUUID() }] };
-      save(next);
-      return next;
-    });
+    const entry: UnavailableItem = { ...item, id: crypto.randomUUID() };
+    setData((prev) => ({ ...prev, unavailable: [...prev.unavailable, entry] }));
   }, []);
 
   const removeUnavailable = useCallback((id: string) => {
-    setData((prev) => {
-      const next = { ...prev, unavailable: prev.unavailable.filter((u) => u.id !== id) };
-      save(next);
-      return next;
-    });
+    setData((prev) => ({
+      ...prev,
+      unavailable: prev.unavailable.filter((u) => u.id !== id),
+    }));
   }, []);
 
-  const reset = useCallback(() => commit(emptyData()), [commit]);
+  const reset = useCallback(() => setData(emptyData()), []);
 
   return {
     data, ready,

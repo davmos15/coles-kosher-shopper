@@ -79,3 +79,20 @@ begin
     execute format('create policy member_all on %I for all using (is_member(household_id)) with check (is_member(household_id));', t);
   end loop;
 end $$;
+
+-- Realtime: stream row changes to a household's members so both devices update
+-- live (see src/lib/store.ts). Realtime still enforces the RLS policies above.
+-- Guarded so re-running this file is safe.
+do $$
+declare t text;
+begin
+  foreach t in array array['recipes','pantry_staples','favourites','kosher_memory','unavailable_items']
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I;', t);
+    end if;
+  end loop;
+end $$;

@@ -41,15 +41,40 @@ recipe costs well under a cent.
 > Note: until Phase 2, data is per-browser (not shared). Deploying makes the
 > app reachable from any device; sharing one list comes next.
 
-## Phase 2 — sharing between two people
+## Phase 2 — sharing between two people (built)
 
-The whole app talks to `src/lib/store.ts` only. To share one list:
+One list, shared live between two devices, backed by Supabase. It's opt-in:
+**leave the Supabase env vars blank and the app runs exactly as before**
+(local-only, per-browser). Set them and the app gates behind sign-in and shares
+one household's data.
 
-1. Create a Supabase project, run `supabase/schema.sql` in its SQL editor.
-2. Put `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in your env.
-3. Swap `load()` / `save()` in `store.ts` for Supabase reads/writes keyed by
-   household. Row-level security is already set up so each household only sees
-   its own data.
+How it works:
+
+- `src/lib/supabase/client.ts` / `server.ts` build the clients from the public
+  env vars.
+- Email **magic-link** sign-in (Supabase Auth) gates the app.
+- On first sign-in you **start a new shop** or **join** an existing one with an
+  invite code (the household id — copy it from the header, send it to the other
+  person). Membership is stored in `household_members`.
+- `src/lib/store.ts` keeps the same `AppData` shape but now reads/writes the
+  Supabase tables keyed by household (diff-based writes), with **realtime** so
+  both devices update live. `useAppData.ts` and the engine are unchanged in
+  shape; the components didn't change at all.
+- Row-level security means each household only ever sees its own rows.
+
+### Turning it on
+
+1. Create a Supabase project.
+2. Run `supabase/schema.sql` in the SQL editor (creates the tables + RLS and
+   enables realtime — safe to re-run).
+3. In **Authentication → Providers**, enable **Email** (magic link is on by
+   default). In **Authentication → URL Configuration**, set the **Site URL** and
+   add your deploy URL (and `http://localhost:3000`) to the redirect allow-list.
+4. Put `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in your env
+   (both are safe to expose to the browser). On Vercel, add them alongside
+   `ANTHROPIC_API_KEY`.
+5. Both people sign in; one starts the shop and shares the invite code, the
+   other joins. Done — you're on one list.
 
 ## Coles integration paths (for later)
 
@@ -75,7 +100,8 @@ src/lib/units.ts         quantity parsing + summing
 src/lib/normalise.ts     ingredient grouping keys
 src/lib/anthropic.ts     recipe extraction
 src/lib/coles.ts         Coles matcher (STUB — replace here)
-src/lib/store.ts         persistence (localStorage — swap for Supabase)
+src/lib/store.ts         persistence (localStorage OR Supabase, keyed by household)
+src/lib/supabase/*       Supabase clients, auth + household provider
 src/app/api/extract      server route (keeps your API key hidden)
 src/components/*          UI
 ```
