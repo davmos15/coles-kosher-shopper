@@ -16,9 +16,9 @@ learn-once kosher check, and a separate "can't get at Coles" reminder list.
 - **Can't-get-at-Coles list**: tracked separately, appended to every shop.
 - Runs fully **on your own device** — data lives in your browser (localStorage).
 
-Coles product matching is **stubbed** for now (see `src/lib/coles.ts`): each
-line gets a real Coles *search* link so it's usable, and real product/price
-matching drops into that one file later.
+Coles product data goes through a **connector** (see `src/lib/coles.ts`): by
+default each line gets a real Coles *search* link, with opt-in live product
+search and per-line product pinning on top (see "Coles connector & search").
 
 ## Run it
 
@@ -89,23 +89,32 @@ How it works:
 5. Both people sign in; one starts the shop and shares the invite code, the
    other joins. Done — you're on one list.
 
-## Coles: how "add to cart" works (and why it isn't fully automatic)
+## Coles connector & search
 
-Coles has **no public API and no shareable cart link**, so the app can't
-silently push items into your trolley. What it does instead (Path B — robust,
-within Coles' terms):
+Everything Coles goes through a small connector interface in `src/lib/coles.ts`
+(`ColesConnector`), so the data source is a one-file swap. Two connectors ship:
 
-- **Copy list** puts the whole consolidated list on your clipboard.
-- **Open Coles** opens coles.com.au; each line also links straight to its Coles
-  **search** so adding an item is one tap on Coles' own site.
-- **Tick items** off as they go in the trolley (per shopping session).
+- **`search-link`** (default): every item links to a live Coles search. Zero
+  setup, works everywhere.
+- **`coles-live`** (opt-in, `COLES_PROVIDER=live`): real product search against
+  Coles' own internal endpoint (the same one coles.com.au calls), served from
+  `/api/coles/search` so the request stays server-side. It resolves Coles'
+  rotating build id automatically.
 
-True silent auto-add would mean driving Coles' private trolley endpoint with
-your logged-in session (**Path A**): it's against Coles' terms, sits behind bot
-protection, and breaks on every redesign — so it's intentionally not built. It
-would also need real product matching first: `src/lib/coles.ts` is still a stub
-that returns a search link per item. Drop real product/price resolution into
-that one file and the add-through links get sharper automatically.
+  ⚠️ **Experimental.** It's unofficial and fragile: Coles' bot protection
+  commonly blocks datacenter IPs, so it tends to work from a home connection but
+  fail when deployed to a cloud host like Vercel. Every failure degrades to the
+  search link. It's **search-only** — Coles exposes no cart API, so nothing can
+  silently add to your trolley.
+
+On each list line, **Match on Coles** opens a search box: pick a result to pin
+the real product (name, size, price, link) to that line. Pins are saved as the
+"bought before" **favourite**, so prices roll into the estimated total and stick
+next time. You can also **enter a product by hand** — handy when live search is
+blocked: search on Coles yourself, paste the details, done.
+
+For the whole shop: **Copy list** copies everything to the clipboard, **Open
+Coles** opens their site, and you **tick items off** as they go in the trolley.
 
 ## Kosher data — how it's sourced
 

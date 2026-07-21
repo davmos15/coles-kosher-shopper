@@ -80,7 +80,7 @@ function Shop() {
         </section>
 
         <section className="lg:sticky lg:top-6 self-start">
-          <ShoppingListView list={list} onSetKosher={app.setKosher} />
+          <ShoppingListView list={list} onSetKosher={app.setKosher} onSetFavourite={app.setFavourite} />
         </section>
       </div>
     </main>

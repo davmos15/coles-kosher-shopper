@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ShoppingList, KosherStatus } from "@/lib/types";
+import type { ShoppingList, KosherStatus, Product } from "@/lib/types";
+import { normaliseName } from "@/lib/normalise";
+import { ColesMatch } from "./ColesMatch";
 
 const NEXT: Record<KosherStatus, KosherStatus> = {
   unverified: "verified",
@@ -22,9 +24,10 @@ function KosherChip({ status, onClick }: { status: KosherStatus; onClick: () => 
 interface Props {
   list: ShoppingList;
   onSetKosher: (productId: string, status: KosherStatus) => void;
+  onSetFavourite: (ingredientKey: string, product: Product) => void;
 }
 
-export function ShoppingListView({ list, onSetKosher }: Props) {
+export function ShoppingListView({ list, onSetKosher, onSetFavourite }: Props) {
   const empty = list.lines.length === 0 && list.unavailable.length === 0;
 
   // Which lines are already in the trolley — a shopping-session convenience,
@@ -49,7 +52,7 @@ export function ShoppingListView({ list, onSetKosher }: Props) {
   }
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card">
       <div className="flex items-start justify-between gap-4 px-5 pt-5">
         <div>
           <p className="eyebrow">The shop</p>
@@ -137,11 +140,11 @@ export function ShoppingListView({ list, onSetKosher }: Props) {
                     {line.needsMatch && <span> · no Coles match yet</span>}
                   </p>
                 </div>
-                {line.product?.url && (
-                  <a className="btn btn-ghost text-xs shrink-0" href={line.product.url} target="_blank" rel="noreferrer">
-                    Find on Coles
-                  </a>
-                )}
+                <ColesMatch
+                  query={line.name}
+                  current={line.product}
+                  onPin={(product) => onSetFavourite(normaliseName(line.name), product)}
+                />
               </li>
             );
           })}
